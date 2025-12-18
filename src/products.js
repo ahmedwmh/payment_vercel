@@ -65,7 +65,8 @@ async function buyProduct(productId) {
         lineItem: [{
             label: product.name,
             amount: product.price,
-            type: 'increase'
+            type: 'increase',
+            image: product.image || "" // Include image field (can be empty string)
         }],
         redirectionUrl: REDIRECT_URL,
     };
@@ -89,6 +90,7 @@ async function buyProduct(productId) {
 
         const result = await response.json();
         console.log('Serverless function response:', result);
+        console.log('Validation errors:', result.validationErrors);
 
         if (!response.ok) {
             // Handle different error statuses
@@ -99,6 +101,17 @@ async function buyProduct(productId) {
                     ? `${errorMsg}\n\n${hints.join('\n')}`
                     : errorMsg;
                 throw new Error(fullMessage);
+            }
+            // Handle 422 validation errors with details
+            if (response.status === 422) {
+                const validationErrors = result.validationErrors || [];
+                const errorDetails = validationErrors.map(err => {
+                    if (typeof err === 'object' && err.path) {
+                        return `${err.path.join('.')}: ${err.message || err.msg || 'Invalid'}`;
+                    }
+                    return String(err);
+                }).join(', ');
+                throw new Error(`${result.message || 'Validation error'}: ${errorDetails}`);
             }
             throw new Error(result.message || result.details || result.msg || `HTTP Error: ${response.status}`);
         }
