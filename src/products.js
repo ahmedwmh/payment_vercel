@@ -69,6 +69,8 @@ async function buyProduct(productId) {
             image: product.image || "" // Include image field (can be empty string)
         }],
         redirectionUrl: REDIRECT_URL,
+        webhookUrl: REDIRECT_URL + "?webhook=true", // Webhook URL for payment status updates
+        webhookSecret: "wayl-webhook-secret-12345" // Secret for webhook verification (10-255 characters)
     };
 
     try {
