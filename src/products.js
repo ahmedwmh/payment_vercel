@@ -87,7 +87,16 @@ async function buyProduct(productId) {
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.message || `HTTP Error: ${response.status}`);
+            // Handle 401 authentication errors with helpful message
+            if (response.status === 401) {
+                const errorMsg = result.message || 'Invalid authentication key';
+                const hints = result.hints || [];
+                const fullMessage = hints.length > 0 
+                    ? `${errorMsg}\n\n${hints.join('\n')}`
+                    : errorMsg;
+                throw new Error(fullMessage);
+            }
+            throw new Error(result.message || result.details || `HTTP Error: ${response.status}`);
         }
 
         // Get payment URL from response (according to API docs: result.data.url)

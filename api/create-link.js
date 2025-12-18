@@ -1,5 +1,15 @@
 // Vercel Serverless Function to proxy Wayl API calls
 export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -14,6 +24,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ 
         message: 'WAYL_API_KEY environment variable is not set. Please configure it in your Vercel project settings.' 
       });
+    }
+
+    // Log for debugging (only in development)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Using API Key:', WAYL_API_KEY.substring(0, 20) + '...');
+      console.log('API Key Length:', WAYL_API_KEY.length);
     }
     
     const WAYL_API_URL = 'https://api.thewayl.com/api/v1/links';
@@ -45,7 +61,22 @@ export default async function handler(req, res) {
       body: JSON.stringify(paymentData),
     });
 
-    const data = await response.json();
+    // Get response text first (we can parse it as JSON or use as text)
+    const responseText = await response.text();
+    let data;
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      // If response is not JSON, use text
+      console.error('Wayl API non-JSON response:', responseText);
+      return res.status(response.status).json({
+        message: 'Invalid authentication key',
+        error: 'Wayl API returned non-JSON response',
+        details: `Status ${response.status}: ${responseText}`,
+        hint: 'Please verify your WAYL_API_KEY in Vercel environment variables'
+      });
+    }
 
     if (!response.ok) {
       // Log the error for debugging
@@ -53,14 +84,30 @@ export default async function handler(req, res) {
         status: response.status,
         statusText: response.statusText,
         data: data,
-        apiKeyLength: WAYL_API_KEY ? WAYL_API_KEY.length : 0
+        apiKeyLength: WAYL_API_KEY ? WAYL_API_KEY.length : 0,
+        apiKeyPrefix: WAYL_API_KEY ? WAYL_API_KEY.substring(0, 20) : 'none'
       });
       
-      // Return more detailed error message
+      // Handle 401 specifically
+      if (response.status === 401) {
+        return res.status(401).json({
+          message: 'Invalid authentication key',
+          error: data,
+          details: 'The Wayl API rejected your authentication key. Please verify:',
+          hints: [
+            '1. Check your WAYL_API_KEY in Vercel environment variables',
+            '2. Make sure the API key is complete and copied correctly',
+            '3. Verify the key is active in your Wayl merchant dashboard',
+            '4. Redeploy your Vercel project after setting the environment variable'
+          ]
+        });
+      }
+      
+      // Return more detailed error message for other errors
       return res.status(response.status).json({
-        message: data.message || 'Payment failed',
+        message: data.message || data.msg || 'Payment failed',
         error: data,
-        details: `Wayl API returned ${response.status}: ${data.message || response.statusText}`
+        details: `Wayl API returned ${response.status}: ${data.message || data.msg || response.statusText}`
       });
     }
 
