@@ -7,7 +7,8 @@ export default async function handler(req, res) {
 
   try {
     // Get API key from environment variable (set in Vercel dashboard)
-    const WAYL_API_KEY = process.env.WAYL_API_KEY;
+    // Fallback to default key if env var not set (for testing)
+    const WAYL_API_KEY = process.env.WAYL_API_KEY || "WWI2LZxl51giAqxffsl4Dw==:8wTmnJpGrBt8vrpeAmqerVpmWplcYXp58fIanNs1Iv7c7dPBgyR/Pz5pp4Oh99F9RrwDHRQmzEjCVYAoNVuWE0oDrmPXGXbhsJM0C97ooJiHWiyhhS01146entAjMOqHchxkBJxjfOuFJCLwlEwd1VycObwtDrw9nNWJ38nHero=";
     
     if (!WAYL_API_KEY) {
       return res.status(500).json({ 
@@ -47,7 +48,20 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      // Log the error for debugging
+      console.error('Wayl API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: data,
+        apiKeyLength: WAYL_API_KEY ? WAYL_API_KEY.length : 0
+      });
+      
+      // Return more detailed error message
+      return res.status(response.status).json({
+        message: data.message || 'Payment failed',
+        error: data,
+        details: `Wayl API returned ${response.status}: ${data.message || response.statusText}`
+      });
     }
 
     // Return the response from Wayl API
