@@ -124,26 +124,10 @@ export default async function handler(req, res) {
       
       // Handle 422 validation errors with more details
       if (response.status === 422) {
-        return res.status(422).json({
-          message: data.message || data.msg || 'Validation error',
-          error: data,
-          details: `Wayl API returned ${response.status}: ${data.message || data.msg || response.statusText}`,
-          validationErrors: data.errors || data.error,
-          sentData: {
-            referenceId: paymentData.referenceId,
-            total: paymentData.total,
-            currency: paymentData.currency,
-            hasLineItem: !!paymentData.lineItem,
-            lineItemCount: paymentData.lineItem ? paymentData.lineItem.length : 0
-          }
-        });
-      }
-      
-      // Handle 422 validation errors with more details
-      if (response.status === 422) {
         console.error('Wayl API 422 Validation Error:', {
           fullResponse: data,
-          sentPaymentData: paymentData
+          sentPaymentData: paymentData,
+          errors: data.errors
         });
         return res.status(422).json({
           message: data.message || data.msg || 'Validation error',
@@ -156,7 +140,8 @@ export default async function handler(req, res) {
             currency: paymentData.currency,
             hasLineItem: !!paymentData.lineItem,
             lineItemCount: paymentData.lineItem ? paymentData.lineItem.length : 0,
-            lineItemDetails: paymentData.lineItem
+            lineItemDetails: paymentData.lineItem,
+            redirectionUrl: paymentData.redirectionUrl
           }
         });
       }
