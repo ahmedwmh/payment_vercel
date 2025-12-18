@@ -30,6 +30,9 @@ export default async function handler(req, res) {
     // Get payment data from request body
     const paymentData = req.body;
 
+    // Log the incoming data for debugging
+    console.log('Received payment data:', JSON.stringify(paymentData, null, 2));
+
     // Validate required fields
     if (!paymentData.referenceId || !paymentData.total || !paymentData.currency) {
       return res.status(400).json({ 
@@ -42,6 +45,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ 
         message: 'Minimum payment amount is 1000 IQD' 
       });
+    }
+
+    // Validate lineItem if provided
+    if (paymentData.lineItem && Array.isArray(paymentData.lineItem)) {
+      for (const item of paymentData.lineItem) {
+        if (!item.label || item.label.length < 3 || item.label.length > 255) {
+          return res.status(400).json({
+            message: 'Line item label must be between 3 and 255 characters'
+          });
+        }
+        if (!item.amount || item.amount < 1) {
+          return res.status(400).json({
+            message: 'Line item amount must be at least 1 IQD'
+          });
+        }
+        if (!item.type || !['increase', 'decrease'].includes(item.type)) {
+          return res.status(400).json({
+            message: 'Line item type must be "increase" or "decrease"'
+          });
+        }
+      }
     }
 
     // Make request to Wayl API
@@ -95,6 +119,45 @@ export default async function handler(req, res) {
             '4. Check if your store/account has permission to create payment links',
             '5. Redeploy your Vercel project after setting the environment variable'
           ]
+        });
+      }
+      
+      // Handle 422 validation errors with more details
+      if (response.status === 422) {
+        return res.status(422).json({
+          message: data.message || data.msg || 'Validation error',
+          error: data,
+          details: `Wayl API returned ${response.status}: ${data.message || data.msg || response.statusText}`,
+          validationErrors: data.errors || data.error,
+          sentData: {
+            referenceId: paymentData.referenceId,
+            total: paymentData.total,
+            currency: paymentData.currency,
+            hasLineItem: !!paymentData.lineItem,
+            lineItemCount: paymentData.lineItem ? paymentData.lineItem.length : 0
+          }
+        });
+      }
+      
+      // Handle 422 validation errors with more details
+      if (response.status === 422) {
+        console.error('Wayl API 422 Validation Error:', {
+          fullResponse: data,
+          sentPaymentData: paymentData
+        });
+        return res.status(422).json({
+          message: data.message || data.msg || 'Validation error',
+          error: data,
+          details: `Wayl API returned ${response.status}: ${data.message || data.msg || response.statusText}`,
+          validationErrors: data.errors || data.error,
+          sentData: {
+            referenceId: paymentData.referenceId,
+            total: paymentData.total,
+            currency: paymentData.currency,
+            hasLineItem: !!paymentData.lineItem,
+            lineItemCount: paymentData.lineItem ? paymentData.lineItem.length : 0,
+            lineItemDetails: paymentData.lineItem
+          }
         });
       }
       
