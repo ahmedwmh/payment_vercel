@@ -1,0 +1,1829 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Wayl API",
+    "version": "1.0.0",
+    "description": "Wayl API enables merchants to integrate payment solutions, manage products, handle subscriptions, and process refunds. This RESTful API uses JSON for requests and responses, and requires authentication via API keys. All amounts are in Iraqi Dinar (IQD).",
+    "contact": {
+      "name": "Wayl API Support",
+      "url": "https://thewayl.com/support"
+    },
+    "x-logo": {
+      "url": "https://thewayl.com/logo.png"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.thewayl.com",
+      "description": "Production Server"
+    },
+    {
+      "url": "https://api.thewayl-staging.com",
+      "description": "Testing Server"
+    },
+    {
+      "url": "http://localhost:3006",
+      "description": "Local Server"
+    }
+  ],
+  "security": [
+    {
+      "apiWaylAuthentication": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Verify your API credentials and ensure your authentication key is valid before making API requests."
+    },
+    {
+      "name": "Channels",
+      "description": "Payment channels represent the available payment methods (e.g., ZainCash, FastPay) that your store can accept. Use this endpoint to retrieve which payment channels are enabled for your store integration."
+    },
+    {
+      "name": "Links",
+      "description": "Payment links allow you to create shareable URLs that customers can use to complete payments. Each link is tied to a specific order and can include line item breakdowns, webhooks for status updates, and custom redirection URLs. Links support various statuses throughout their lifecycle (Created, Pending, Processing, Complete, etc.)."
+    },
+    {
+      "name": "Products",
+      "description": "Manage your Digital, Physical, and Service products. Products can have variants (inventories), discounts, stock tracking, and downloadable files. Subscription products are managed separately through the Subscriptions endpoints."
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Subscription products enable recurring billing on a Daily, Weekly, Monthly, or Yearly basis. Each subscription product has a grace period for failed payments and can be paused to prevent new customer subscriptions. These are the product templates that customers subscribe to."
+    },
+    {
+      "name": "Subscribers",
+      "description": "Subscribers represent active customer subscriptions to your subscription products. Track billing cycles, payment failures, retry attempts, and subscription status. Subscribers can be Active, Retrying (failed payment), Cancelled."
+    },
+    {
+      "name": "Refunds",
+      "description": "Process refund requests for completed payments. Refunds require a detailed reason (minimum 100 characters) and can only be issued for paid orders linked to customers. Track refund status from Request through to Refunded, Rejected, or Cancelled."
+    }
+  ],
+  "paths": {
+    "/api/v1/channels": {
+      "get": {
+        "tags": [
+          "Channels"
+        ],
+        "summary": "Retrieve Channels",
+        "description": "Get a list of available payment channels (payment methods) supported for your store integration.",
+        "responses": {
+          "200": {
+            "description": "A list of channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "Array of available payment channels for this store",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique identifier/code for the payment channel"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Display name of the payment channel"
+                          },
+                          "icon": {
+                            "type": "string",
+                            "description": "URL to the payment channel's icon/logo"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/links": {
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Create a Link",
+        "description": "Create a payment link for your customers. Store must be verified to create links. The referenceId must be unique across all your links.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "referenceId": {
+                    "type": "string",
+                    "example": "dummy-reference-id",
+                    "description": "A unique identifier for the link on your system (max 255 characters). Must be unique across all your links."
+                  },
+                  "total": {
+                    "type": "number",
+                    "example": 10000,
+                    "description": "The total amount to be paid in IQD (minimum 1000). Must equal the sum of all line items if line items are provided."
+                  },
+                  "currency": {
+                    "type": "string",
+                    "example": "IQD",
+                    "description": "The currency of the link. Currently only IQD is supported."
+                  },
+                  "customParameter": {
+                    "type": "string",
+                    "description": "Optional custom parameter for your internal tracking or display purposes."
+                  },
+                  "lineItem": {
+                    "type": "array",
+                    "description": "Optional line items breakdown. If provided, the sum of all line items must equal the total amount.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string",
+                          "example": "Basket Value",
+                          "description": "Label for this line item (3-255 characters)"
+                        },
+                        "amount": {
+                          "type": "number",
+                          "example": 10000,
+                          "description": "Amount for this line item in IQD (minimum 1)"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "increase",
+                            "decrease"
+                          ],
+                          "description": "Whether this line item increases or decreases the total amount"
+                        },
+                        "image": {
+                          "type": "string",
+                          "example": "https://www.fabulousflowers.co.za/cdn/shop/files/LushWonderFlowerBouquet-FabulousFlowersandGifts3.jpg",
+                          "description": "Optional image URL for the line item"
+                        }
+                      }
+                    }
+                  },
+                  "webhookUrl": {
+                    "type": "string",
+                    "example": "https://webhook.site/#!/view/897e5f20-e1ed-4629-99cb-7e176abf2762",
+                    "description": "The webhook URL to be called when payment status changes. Must be a valid URL."
+                  },
+                  "webhookSecret": {
+                    "type": "string",
+                    "example": "1234567890",
+                    "description": "Secret key used to verify webhook authenticity (10-255 characters). Will be encrypted in our system."
+                  },
+                  "redirectionUrl": {
+                    "type": "string",
+                    "example": "https://www.google.com",
+                    "description": "The URL to redirect customers after successful payment. Will have referenceId and orderid appended as query parameters."
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Link created successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "customParameter": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Custom parameter for internal tracking"
+                          },
+                          "referenceId": {
+                            "type": "string",
+                            "description": "Your unique reference ID"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Wayl's unique identifier for this link"
+                          },
+                          "code": {
+                            "type": "string",
+                            "description": "Short alphanumeric code used in the payment URL"
+                          },
+                          "total": {
+                            "type": "string",
+                            "description": "Total amount as string"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "Payment currency"
+                          },
+                          "type": {
+                            "type": "string",
+                            "description": "Link type identifier"
+                          },
+                          "paymentMethod": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Payment method used (null until payment is made)"
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "Current payment status (Created, Pending, Processing, Complete, Delivered, Cancelled, Rejected, Returned)"
+                          },
+                          "completedAt": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Timestamp when payment was completed (null if not completed)"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "Link creation timestamp"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "description": "Last update timestamp"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "Payment URL to share with customers"
+                          },
+                          "webhookUrl": {
+                            "type": "string",
+                            "description": "Your webhook URL"
+                          },
+                          "redirectionUrl": {
+                            "type": "string",
+                            "description": "Customer redirection URL with appended query parameters (referenceId and orderid)"
+                          }
+                        }
+                      },
+                      "message": {
+                        "type": "string",
+                        "description": "Response message"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Retrieve Links",
+        "description": "Get a paginated list of payment links with optional status filtering. Returns links ordered by creation date (newest first).",
+        "parameters": [
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "description": "Number of links to retrieve per page (default: 10)",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of links to skip for pagination (default: 0)",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "statuses",
+            "in": "query",
+            "required": false,
+            "description": "Filter by payment status. Can provide multiple values. Valid statuses: Created, Pending, Processing, Complete, Delivered, Cancelled, Rejected, Returned",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "example": "Pending"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "Array of payment links",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "customParameter": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Custom parameter for tracking"
+                          },
+                          "referenceId": {
+                            "type": "string",
+                            "description": "Your unique reference ID"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Wayl's unique identifier"
+                          },
+                          "total": {
+                            "type": "string",
+                            "description": "Total amount as string"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "Payment currency"
+                          },
+                          "type": {
+                            "type": "string",
+                            "description": "Link type"
+                          },
+                          "paymentMethod": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Payment method used"
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "Current payment status"
+                          },
+                          "completedAt": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Payment completion timestamp"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "Creation timestamp"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "description": "Last update timestamp"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "Payment URL"
+                          },
+                          "webhookUrl": {
+                            "type": "string",
+                            "description": "Webhook URL"
+                          },
+                          "redirectionUrl": {
+                            "type": "string",
+                            "description": "Redirection URL"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/links/{referenceId}": {
+      "get": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Retrieve a specific Link",
+        "description": "Get details of a specific payment link using your reference ID.",
+        "parameters": [
+          {
+            "name": "referenceId",
+            "in": "path",
+            "required": true,
+            "description": "Your unique reference ID for the link",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details of the link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "referenceId": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "paymentMethod": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "completedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "webhookUrl": {
+                          "type": "string"
+                        },
+                        "redirectionUrl": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/links/{referenceId}/invalidate": {
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Invalidate a specific Link",
+        "description": "Cancel an unpaid payment link. Once invalidated, customers cannot make payments using this link.",
+        "parameters": [
+          {
+            "name": "referenceId",
+            "in": "path",
+            "required": true,
+            "description": "Your reference ID of the link to invalidate",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Link invalidated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "referenceId": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "paymentMethod": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "completedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "webhookUrl": {
+                          "type": "string"
+                        },
+                        "redirectionUrl": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/links/{referenceId}/invalidate-if-pending": {
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Invalidate a specific Link if it is pending",
+        "description": "Invalidate a specific payment link if it is pending. If the link is not pending, it will return a success response.",
+        "parameters": [
+          {
+            "name": "referenceId",
+            "in": "path",
+            "required": true,
+            "description": "Your reference ID of the link to invalidate if it is pending",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Link invalidated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "referenceId": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "paymentMethod": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "completedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "webhookUrl": {
+                          "type": "string"
+                        },
+                        "redirectionUrl": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/links/batch": {
+      "post": {
+        "tags": [
+          "Links"
+        ],
+        "summary": "Retrieve a Group of Links by Reference IDs",
+        "description": "Get details for multiple links by providing an array of reference IDs (1-100 items). Only returns links that belong to the authenticated merchant.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "referenceIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "description": "Array of your reference IDs to retrieve. Minimum 1, maximum 100 items per request.",
+                    "example": [
+                      "ref-001",
+                      "ref-002",
+                      "ref-003"
+                    ]
+                  }
+                },
+                "required": [
+                  "referenceIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch retrieval successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "referenceId": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "total": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "paymentMethod": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "completedAt": {
+                            "type": "string",
+                            "nullable": true,
+                            "format": "date-time"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "webhookUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "redirectionUrl": {
+                            "type": "string",
+                            "format": "uri"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Found 2 links out of 3 requested reference IDs"
+                    },
+                    "totalRequested": {
+                      "type": "integer",
+                      "description": "Total number of reference IDs requested"
+                    },
+                    "totalFound": {
+                      "type": "integer",
+                      "description": "Total number of links found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid request. Please provide an array of referenceIds (1-100 items)."
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Retrieve All Products",
+        "description": "Get a paginated list of your products (Digital, Physical, and Service products - excludes Subscription products). Returns products ordered by creation date (newest first).",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of products to skip for pagination (default: 0)",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "description": "Number of products to retrieve (default: 10)",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of Products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "description": "Array of product objects",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique product identifier"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Product name/title"
+                          },
+                          "price": {
+                            "type": "string",
+                            "description": "Product price in IQD"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "Public product page URL"
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "Product status (e.g., Active, Inactive)"
+                          },
+                          "image": {
+                            "type": "string",
+                            "description": "Primary product image URL"
+                          },
+                          "tags": {
+                            "type": "string",
+                            "description": "Product tag/category label"
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Product description/content"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "description": "Product creation timestamp"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "description": "Last update timestamp"
+                          },
+                          "productType": {
+                            "type": "string",
+                            "description": "Type of product (Digital, Physical, Service)"
+                          },
+                          "downloadable": {
+                            "type": "string",
+                            "description": "Downloadable file URL for digital products"
+                          },
+                          "discountType": {
+                            "type": "string",
+                            "description": "Type of discount applied (e.g., percentage, fixed)"
+                          },
+                          "discountExpiry": {
+                            "type": "string",
+                            "description": "When the discount expires"
+                          },
+                          "discountValue": {
+                            "type": "string",
+                            "description": "Discount value"
+                          },
+                          "inventories": {
+                            "type": "array",
+                            "description": "Product variants and inventory options",
+                            "items": {
+                              "type": "object"
+                            }
+                          },
+                          "qt": {
+                            "type": "number",
+                            "description": "Total quantity in stock"
+                          },
+                          "unlimited": {
+                            "type": "boolean",
+                            "description": "Whether product has unlimited stock"
+                          },
+                          "notifyOn": {
+                            "type": "number",
+                            "description": "Stock level to trigger low inventory notification"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/products/{productId}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Retrieve a specific Product",
+        "description": "Get detailed information about a specific product by its ID.",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "Unique identifier of the product to retrieve",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details of the Product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "image": {
+                          "type": "string"
+                        },
+                        "tags": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subscriptions": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Retrieve All Subscriptions",
+        "description": "Get a paginated list of subscription products (recurring payment products). Returns products ordered by creation date (newest first).",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of subscription products to skip for pagination (default: 0)",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "description": "Number of subscription products to retrieve (default: 10)",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of subscriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Product creation timestamp"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last update timestamp"
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Unique subscription product identifier"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Subscription product name"
+                          },
+                          "amount": {
+                            "type": "string",
+                            "description": "Subscription price in IQD"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "Currency (always IQD)"
+                          },
+                          "subscriptionPeriod": {
+                            "type": "string",
+                            "enum": [
+                              "Daily",
+                              "Weekly",
+                              "Monthly",
+                              "Yearly"
+                            ],
+                            "description": "Billing frequency for the subscription"
+                          },
+                          "gracePeriod": {
+                            "type": "number",
+                            "description": "Number of days before subscription is cancelled after failed payment. Gives customers time to update payment information."
+                          },
+                          "pausedSubscription": {
+                            "type": "boolean",
+                            "description": "Whether new subscriptions to this product are currently paused"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subscriptions/{productId}": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "summary": "Retrieve a specific Subscription",
+        "description": "Get detailed information about a specific subscription product by its ID.",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "description": "The unique identifier of the subscription product",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details of the subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "subscriptionPeriod": {
+                          "type": "string",
+                          "enum": [
+                            "Daily",
+                            "Weekly",
+                            "Monthly",
+                            "Yearly"
+                          ],
+                          "description": "How often the customer is billed"
+                        },
+                        "gracePeriod": {
+                          "type": "number",
+                          "description": "Days allowed for payment retry before cancellation"
+                        },
+                        "pausedSubscription": {
+                          "type": "boolean",
+                          "description": "Whether new subscriptions are paused"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subscription not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "We couldn't find any product with this id"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subscribers": {
+      "get": {
+        "tags": [
+          "Subscribers"
+        ],
+        "summary": "Retrieve All Subscribers",
+        "description": "Get a paginated list of customers who have subscriptions to your products. Returns subscribers ordered by next billing date (most recent first).",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of subscribers to skip for pagination (default: 0)",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "description": "Number of subscribers to retrieve (default: 10)",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter subscribers by their subscription status. Valid values: Active, Retrying, Cancelled",
+            "schema": {
+              "type": "string",
+              "default": "Active",
+              "enum": [
+                "Active",
+                "Retrying",
+                "Cancelled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of subscribers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique subscriber identifier"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When the subscription was created"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Last update timestamp"
+                          },
+                          "amount": {
+                            "type": "number",
+                            "description": "Recurring billing amount in IQD"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "Currency (IQD)"
+                          },
+                          "period": {
+                            "type": "string",
+                            "enum": [
+                              "Daily",
+                              "Weekly",
+                              "Monthly",
+                              "Yearly"
+                            ],
+                            "description": "Billing frequency"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "Active",
+                              "Paused",
+                              "Cancelled",
+                              "PendingCancellation"
+                            ],
+                            "description": "Current subscription status"
+                          },
+                          "nextBillingAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Next scheduled billing date and time"
+                          },
+                          "pendingAmount": {
+                            "type": "number",
+                            "description": "Outstanding amount that failed to be collected"
+                          },
+                          "unpaidSince": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Date when payment failures started (used to track grace period)"
+                          },
+                          "retryCount": {
+                            "type": "number",
+                            "description": "Number of failed payment retry attempts"
+                          },
+                          "cancelledAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true,
+                            "description": "When the subscription was cancelled (null if active)"
+                          },
+                          "cancelledBy": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Who cancelled the subscription (Merchant/Customer/System, null if active)"
+                          },
+                          "cancelledReason": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Reason for cancellation (null if active)"
+                          },
+                          "product": {
+                            "type": "object",
+                            "description": "The subscription product details",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Product identifier"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "Product name"
+                              },
+                              "price": {
+                                "type": "number",
+                                "description": "Product price"
+                              },
+                              "subscriptionPeriod": {
+                                "type": "string",
+                                "enum": [
+                                  "Daily",
+                                  "Weekly",
+                                  "Monthly",
+                                  "Yearly"
+                                ],
+                                "description": "Billing period"
+                              },
+                              "gracePeriod": {
+                                "type": "number",
+                                "description": "Days before cancellation after payment failure"
+                              },
+                              "pausedSubscription": {
+                                "type": "boolean",
+                                "description": "Whether new subscriptions are paused"
+                              }
+                            }
+                          },
+                          "customer": {
+                            "type": "object",
+                            "description": "Customer information",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "Customer identifier"
+                              },
+                              "name": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Customer name (may be null)"
+                              },
+                              "email": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Customer email (may be null)"
+                              },
+                              "phone": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Customer phone (may be null)"
+                              },
+                              "address": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "Customer address (may be null)"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/refunds": {
+      "post": {
+        "tags": [
+          "Refunds"
+        ],
+        "summary": "Create a Refund",
+        "description": "Request a refund for a completed payment. The order must be paid and linked to a customer. Amount must not exceed the amount paid on the gateway.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "referenceId": {
+                    "type": "string",
+                    "description": "Your reference ID for the order to be refunded (2-255 characters)"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Detailed reason for the refund. Minimum 100 characters, maximum 1500 characters."
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "Amount to refund in IQD (minimum 1000). Must be less than or equal to the amount paid on the payment gateway."
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Refund created successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Unique refund identifier"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "Refund reason"
+                          },
+                          "linkId": {
+                            "type": "string",
+                            "description": "Associated order/link ID"
+                          },
+                          "referenceId": {
+                            "type": "string",
+                            "description": "Your order reference ID"
+                          },
+                          "amount": {
+                            "type": "number",
+                            "description": "Refund amount in IQD"
+                          },
+                          "initiatedBy": {
+                            "type": "string",
+                            "description": "Who initiated the refund (Merchant, Customer, or System)"
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "Current refund status (Requested, Refunded, Rejected, Cancelled)"
+                          }
+                        }
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Refunds"
+        ],
+        "summary": "Retrieve Refunds",
+        "description": "Get a paginated list of refund requests with optional filtering by reference ID and status. Returns refunds ordered by creation date (newest first).",
+        "parameters": [
+          {
+            "name": "referenceId",
+            "in": "query",
+            "required": false,
+            "description": "Filter refunds by your order reference ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "description": "Number of refunds to retrieve (default: 10)",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of refunds to skip for pagination (default: 0)",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "statuses",
+            "in": "query",
+            "required": false,
+            "description": "Filter by refund status. Can provide multiple values. Valid statuses: Requested, Refunded, Rejected, Cancelled",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "example": "Requested"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details of the refunds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Refund identifier"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "description": "Refund reason"
+                          },
+                          "linkId": {
+                            "type": "string",
+                            "description": "Associated order ID"
+                          },
+                          "referenceId": {
+                            "type": "string",
+                            "description": "Your order reference ID"
+                          },
+                          "amount": {
+                            "type": "number",
+                            "description": "Refund amount in IQD"
+                          },
+                          "initiatedBy": {
+                            "type": "string",
+                            "description": "Who requested the refund"
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "Current refund status"
+                          }
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/refunds/{refundId}": {
+      "get": {
+        "tags": [
+          "Refunds"
+        ],
+        "summary": "Retrieve a specific Refund",
+        "description": "Get details of a specific refund request by its ID.",
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "description": "The unique identifier of the refund to retrieve",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details of the refund",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        },
+                        "linkId": {
+                          "type": "string"
+                        },
+                        "referenceId": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "number"
+                        },
+                        "initiatedBy": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/refunds/{refundId}/cancel": {
+      "delete": {
+        "tags": [
+          "Refunds"
+        ],
+        "summary": "Cancel a specific Refund",
+        "description": "Cancel a pending refund request. Only refunds with 'Requested' status can be cancelled.",
+        "parameters": [
+          {
+            "name": "refundId",
+            "in": "path",
+            "required": true,
+            "description": "The unique identifier of the refund to cancel",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Refund canceled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string"
+                        },
+                        "linkId": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "number"
+                        },
+                        "initiatedBy": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/verify-auth-key": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify Authentication Key",
+        "description": "Verify that your API authentication key is valid and working. Use this endpoint to test your API credentials before making actual API calls.",
+        "responses": {
+          "200": {
+            "description": "Authentication key is valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {},
+                      "description": "Empty object on successful verification"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message confirming authentication"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiWaylAuthentication": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-WAYL-AUTHENTICATION",
+        "description": "API key for merchant authentication. Include your authentication key in the X-WAYL-AUTHENTICATION header for all API requests. You can find your API key in your Wayl merchant dashboard."
+      },
+      "merchant": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-WAYL-AUTHENTICATION",
+        "description": "Merchant API key authentication"
+      },
+      "admin": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-WAYL-ADMIN-TOKEN",
+        "description": "Admin token for administrative operations"
+      }
+    },
+    "schemas": {
+      "SignedWaylAuthorizationPayload": {
+        "type": "object",
+        "description": "Signed JWT payload used for webhook authentication and authorization. This payload is included in webhook requests to verify authenticity.",
+        "properties": {
+          "storeId": {
+            "type": "string",
+            "description": "Unique identifier of the merchant store"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Unique identifier of the user who initiated the action"
+          },
+          "token": {
+            "type": "string",
+            "description": "Session token for request verification"
+          },
+          "iat": {
+            "type": "integer",
+            "description": "Issued at timestamp (Unix timestamp in seconds)"
+          }
+        },
+        "required": [
+          "storeId",
+          "token",
+          "iat"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Standard error response format returned by the API",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message describing what went wrong"
+          },
+          "errors": {
+            "type": "array",
+            "description": "Array of validation errors (present for 422 responses)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "description": "Error code identifier"
+                },
+                "path": {
+                  "type": "array",
+                  "description": "JSON path to the field that caused the error",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "message": {
+                  "type": "string",
+                  "description": "Detailed error message"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "message"
+        ]
+      }
+    }
+  }
+}
