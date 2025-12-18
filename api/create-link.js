@@ -16,15 +16,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get API key from environment variable (set in Vercel dashboard)
-    // Fallback to default key if env var not set (for testing)
-    const WAYL_API_KEY = process.env.WAYL_API_KEY || "WWI2LZxl51giAqxffsl4Dw==:8wTmnJpGrBt8vrpeAmqerVpmWplcYXp58fIanNs1Iv7c7dPBgyR/Pz5pp4Oh99F9RrwDHRQmzEjCVYAoNVuWE0oDrmPXGXbhsJM0C97ooJiHWiyhhS01146entAjMOqHchxkBJxjfOuFJCLwlEwd1VycObwtDrw9nNWJ38nHero=";
-    
-    if (!WAYL_API_KEY) {
-      return res.status(500).json({ 
-        message: 'WAYL_API_KEY environment variable is not set. Please configure it in your Vercel project settings.' 
-      });
-    }
+    // API key - using directly (no environment variable needed)
+    const WAYL_API_KEY = "WWI2LZxl51giAqxffsl4Dw==:8wTmnJpGrBt8vrpeAmqerVpmWplcYXp58fIanNs1Iv7c7dPBgyR/Pz5pp4Oh99F9RrwDHRQmzEjCVYAoNVuWE0oDrmPXGXbhsJM0C97ooJiHWiyhhS01146entAjMOqHchxkBJxjfOuFJCLwlEwd1VycObwtDrw9nNWJ38nHero=";
 
     // Log for debugging (only in development)
     if (process.env.NODE_ENV !== 'production') {
