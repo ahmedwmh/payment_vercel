@@ -1,4 +1,4 @@
-import { REDIRECT_URL } from "./wayl-config.js";
+import { REDIRECT_URL, WAYL_API_KEY, WAYL_API_URL } from "./wayl-config.js";
 
 const products = [
     { id: '1', name: 'Product 1', price: 1000, image: "" },
@@ -74,38 +74,50 @@ async function buyProduct(productId) {
         // Show loading state
         showMessage('Creating payment link...', 'info');
         
-        const apiUrl = '/api/create-link';
+        // DIRECT API CALL - Testing mode (bypasses serverless function)
+        console.log('Calling Wayl API directly:', WAYL_API_URL);
+        console.log('Payment Data:', paymentData);
 
-        const response = await fetch(apiUrl, {
+        const response = await fetch(WAYL_API_URL, {
             method: "POST",
             headers: {
                 'Content-Type': 'application/json',
+                'X-WAYL-AUTHENTICATION': WAYL_API_KEY,
             },
             body: JSON.stringify(paymentData),
         });
 
-        const result = await response.json();
+        // Get response text first
+        const responseText = await response.text();
+        let result;
+        
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Non-JSON response:', responseText);
+            throw new Error(`API returned non-JSON: ${responseText}`);
+        }
+
+        console.log('Wayl API Response:', result);
 
         if (!response.ok) {
-            // Handle 401 authentication errors with helpful message
-            if (response.status === 401) {
-                const errorMsg = result.message || 'Invalid authentication key';
-                const hints = result.hints || [];
-                const fullMessage = hints.length > 0 
-                    ? `${errorMsg}\n\n${hints.join('\n')}`
-                    : errorMsg;
-                throw new Error(fullMessage);
+            // Handle different error statuses
+            if (response.status === 401 || response.status === 403) {
+                const errorMsg = result.message || result.msg || 'Invalid authentication key';
+                throw new Error(`${errorMsg} (Status: ${response.status})`);
             }
-            throw new Error(result.message || result.details || `HTTP Error: ${response.status}`);
+            throw new Error(result.message || result.msg || `HTTP Error: ${response.status}`);
         }
 
         // Get payment URL from response (according to API docs: result.data.url)
         const paymentURL = result.data?.url;
 
         if (paymentURL) {
+            console.log('Payment URL received:', paymentURL);
             // Redirect to Wayl payment page
             window.location.href = paymentURL;
         } else {
+            console.error('No payment URL in response:', result);
             throw new Error('Payment URL not received from API');
         }
 
