@@ -1,4 +1,4 @@
-import { REDIRECT_URL, WAYL_API_KEY, WAYL_API_URL } from "./wayl-config.js";
+import { REDIRECT_URL } from "./wayl-config.js";
 
 const products = [
     { id: '1', name: 'Product 1', price: 1000, image: "" },
@@ -74,39 +74,33 @@ async function buyProduct(productId) {
         // Show loading state
         showMessage('Creating payment link...', 'info');
         
-        // DIRECT API CALL - Testing mode (bypasses serverless function)
-        console.log('Calling Wayl API directly:', WAYL_API_URL);
+        // Use serverless function (required due to CORS)
+        const apiUrl = '/api/create-link';
+        console.log('Calling serverless function:', apiUrl);
         console.log('Payment Data:', paymentData);
 
-        const response = await fetch(WAYL_API_URL, {
+        const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
                 'Content-Type': 'application/json',
-                'X-WAYL-AUTHENTICATION': WAYL_API_KEY,
             },
             body: JSON.stringify(paymentData),
         });
 
-        // Get response text first
-        const responseText = await response.text();
-        let result;
-        
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            console.error('Non-JSON response:', responseText);
-            throw new Error(`API returned non-JSON: ${responseText}`);
-        }
-
-        console.log('Wayl API Response:', result);
+        const result = await response.json();
+        console.log('Serverless function response:', result);
 
         if (!response.ok) {
             // Handle different error statuses
             if (response.status === 401 || response.status === 403) {
                 const errorMsg = result.message || result.msg || 'Invalid authentication key';
-                throw new Error(`${errorMsg} (Status: ${response.status})`);
+                const hints = result.hints || [];
+                const fullMessage = hints.length > 0 
+                    ? `${errorMsg}\n\n${hints.join('\n')}`
+                    : errorMsg;
+                throw new Error(fullMessage);
             }
-            throw new Error(result.message || result.msg || `HTTP Error: ${response.status}`);
+            throw new Error(result.message || result.details || result.msg || `HTTP Error: ${response.status}`);
         }
 
         // Get payment URL from response (according to API docs: result.data.url)

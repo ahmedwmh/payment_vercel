@@ -88,17 +88,19 @@ export default async function handler(req, res) {
         apiKeyPrefix: WAYL_API_KEY ? WAYL_API_KEY.substring(0, 20) : 'none'
       });
       
-      // Handle 401 specifically
-      if (response.status === 401) {
-        return res.status(401).json({
-          message: 'Invalid authentication key',
+      // Handle 401 and 403 authentication/authorization errors
+      if (response.status === 401 || response.status === 403) {
+        const errorMsg = data.msg || data.message || 'Authentication/Authorization failed';
+        return res.status(response.status).json({
+          message: errorMsg,
           error: data,
-          details: 'The Wayl API rejected your authentication key. Please verify:',
+          details: `The Wayl API rejected your request (${response.status}). Please verify:`,
           hints: [
             '1. Check your WAYL_API_KEY in Vercel environment variables',
             '2. Make sure the API key is complete and copied correctly',
             '3. Verify the key is active in your Wayl merchant dashboard',
-            '4. Redeploy your Vercel project after setting the environment variable'
+            '4. Check if your store/account has permission to create payment links',
+            '5. Redeploy your Vercel project after setting the environment variable'
           ]
         });
       }
